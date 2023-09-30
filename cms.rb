@@ -11,7 +11,6 @@ end
 
 before do
   session[:messages] ||= []
-  @data_path = File.expand_path("..", __FILE__) + "/data"
 end
 
 helpers do
@@ -20,38 +19,50 @@ helpers do
   end
 end
 
-def extension(fn)
-  fn.match(/(?<=\.)[a-z0-9]+/i).to_s
+def abs_path(filename=nil, subfolder="data" )
+  [File.expand_path("..", __FILE__), subfolder, filename].compact.join("/")
 end
 
-def load_file(filename)
-  case extension(filename)
-  when "md"
-    markdown_content = File.read(@path)
-    render_md(markdown_content)
-  when "txt"
+def render_content(path)
+  content = File.read(path)
+  case File.extname(path)
+  when ".md"
+    render_md(content)
+  when ".txt"
     headers["Content-Type"] = "text/plain"
-    File.read(@path)
+    content
   else
-    send_file @path
+    send_file path
   end
 end
 
 get "/" do
   @page_title = "File-based CMS"
-  @index = Dir.children(@data_path).sort
+  @index = Dir.children(abs_path).sort
   erb :index, layout: :layout
 end
 
 get "/:filename" do |filename|
-  @path = @data_path + "/#{filename}"
+  path = abs_path(filename)
 
-  unless File.file?(@path)
+  unless File.file?(path)
     session[:messages] << "#{filename} does not exist."
     pass
   end
 
-  load_file(filename)
+  render_content(path)
+end
+
+get "/:filename/edit" do |filename|
+  @cur_content = File.read(abs_path(filename))
+  @filename = filename
+  erb :edit
+end
+
+post "/:filename" do |filename|
+  File.open(abs_path(filename), "w") { |f| f.write(params[:new_content])}
+  session[:messages] << "#{filename} has been updated."
+  redirect "/"
 end
 
 not_found do

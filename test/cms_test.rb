@@ -43,4 +43,43 @@ class CMSTest < Minitest::Test
     error_msg = "notafile.ext does not exist."
     refute_includes(last_response.body, error_msg)
   end
+
+  def test_edit_file
+    # Loading edit page
+    get "/history.txt/edit"
+    assert_equal(200, last_response.status)
+    assert_includes(last_response.body, "<textarea")
+    first_line = "1993 - Yukihiro Matsumoto dreams up Ruby."
+    last_line = "2022 - Ruby 3.2 released."
+    assert_includes(last_response.body, first_line)
+    assert_includes(last_response.body, last_line)
+    assert_includes(last_response.body, '<button type="submit"')
+  end
+
+  def test_update_file
+    # Setting up temporary test file
+    temp_file_path = File.expand_path("../..", __FILE__) + "/data/temp.txt"
+    file_content = "This is a temporary file for testing purposes."
+    File.open(temp_file_path, "w") { |f| f.write(file_content) }
+
+    # Posting edit
+    delta = "\nThis file has been edited as part of the `test_edit_file` test."
+    post "/temp.txt", new_content: file_content + delta
+
+    # Redirecting to index
+    assert_equal(302, last_response.status)
+    get last_response["Location"]
+    assert_equal(200, last_response.status)
+
+    # Test update message
+    assert_includes(last_response.body, "temp.txt has been updated.")
+
+    # Testing that file has been changed
+    get "/temp.txt"
+    assert_equal(200, last_response.status)
+    assert_includes(last_response.body, file_content + delta)
+
+    # Cleanup temp file
+    File.delete(temp_file_path)
+  end
 end
