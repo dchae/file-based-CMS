@@ -19,8 +19,19 @@ helpers do
   end
 end
 
-def abs_path(filename=nil, subfolder="data" )
-  [File.expand_path("..", __FILE__), subfolder, filename].compact.join("/")
+def file_path(filename = nil, subfolder = nil)
+  if subfolder.nil?
+    if ENV["RACK_ENV"] == "test"
+      subfolder = "test/data"
+    else
+      subfolder = "data"
+    end
+  end
+  File.join(*[File.expand_path("..", __FILE__), subfolder, filename].compact)
+end
+
+def create_file(filename, file_content = "")
+  File.open(file_path(filename), "w") { |f| f.write(file_content) }
 end
 
 def render_content(path)
@@ -38,12 +49,12 @@ end
 
 get "/" do
   @page_title = "File-based CMS"
-  @index = Dir.children(abs_path).sort
+  @index = Dir.children(file_path).sort
   erb :index, layout: :layout
 end
 
 get "/:filename" do |filename|
-  path = abs_path(filename)
+  path = file_path(filename)
 
   unless File.file?(path)
     session[:messages] << "#{filename} does not exist."
@@ -54,13 +65,13 @@ get "/:filename" do |filename|
 end
 
 get "/:filename/edit" do |filename|
-  @cur_content = File.read(abs_path(filename))
+  @cur_content = File.read(file_path(filename))
   @filename = filename
   erb :edit
 end
 
 post "/:filename" do |filename|
-  File.open(abs_path(filename), "w") { |f| f.write(params[:new_content])}
+  File.open(file_path(filename), "w") { |f| f.write(params[:new_content]) }
   session[:messages] << "#{filename} has been updated."
   redirect "/"
 end

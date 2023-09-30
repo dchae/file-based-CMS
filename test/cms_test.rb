@@ -2,6 +2,7 @@ ENV["RACK_ENV"] = "test"
 
 require "minitest/autorun"
 require "rack/test"
+require "fileutils"
 
 require_relative "../cms"
 
@@ -12,58 +13,76 @@ class CMSTest < Minitest::Test
     Sinatra::Application
   end
 
+  def setup
+    FileUtils.mkdir_p(file_path)
+  end
+
+  def teardown
+    FileUtils.rm_rf(file_path)
+  end
+
   def test_index
+    create_file("temp1.md")
+    create_file("temp2.txt")
     get "/"
     assert_equal(200, last_response.status)
     assert_equal("text/html;charset=utf-8", last_response["Content-Type"])
-    assert_match(/about\.md/, last_response.body)
-    assert_match(/changes\.txt/, last_response.body)
-    assert_match(/history\.txt/, last_response.body)
+    assert_includes(last_response.body, "temp1.md")
+    assert_includes(last_response.body, "temp2.txt")
   end
 
-  def test_file_history
+  def test_view_text_file
+    file_content = "1993 - Yukihiro Matsumoto dreams up Ruby."
+    create_file("history.txt", file_content )
+
     get "/history.txt"
     assert_equal(200, last_response.status)
     assert_equal("text/plain", last_response["Content-Type"])
+    assert_includes(last_response.body, file_content )
+  end
 
-    first_line = "1993 - Yukihiro Matsumoto dreams up Ruby."
-    last_line = "2022 - Ruby 3.2 released."
-    assert_includes(last_response.body, first_line)
-    assert_includes(last_response.body, last_line)
+  def test_view_markdown_file
+    file_content = "# Header 1"
+    create_file("temp.md", file_content )
+
+    get "/temp.md"
+    assert_equal(200, last_response.status)
+    assert_equal("text/html;charset=utf-8", last_response["Content-Type"])
+    assert_includes(last_response.body, "<h1>Header 1</h1>")
   end
 
   def test_file_not_found
     get "/notafile.ext"
     assert_equal(302, last_response.status)
+
     get last_response["Location"]
     assert_equal(200, last_response.status)
+
     error_msg = "notafile.ext does not exist."
     assert_includes(last_response.body, error_msg)
+
     get "/"
-    error_msg = "notafile.ext does not exist."
     refute_includes(last_response.body, error_msg)
   end
 
   def test_edit_file
+    file_content = "This is a temporary file for testing purposes."
+    create_file("temp.txt", file_content)
     # Loading edit page
-    get "/history.txt/edit"
+    get "/temp.txt/edit"
     assert_equal(200, last_response.status)
     assert_includes(last_response.body, "<textarea")
-    first_line = "1993 - Yukihiro Matsumoto dreams up Ruby."
-    last_line = "2022 - Ruby 3.2 released."
-    assert_includes(last_response.body, first_line)
-    assert_includes(last_response.body, last_line)
+    assert_includes(last_response.body, file_content )
     assert_includes(last_response.body, '<button type="submit"')
   end
 
   def test_update_file
     # Setting up temporary test file
-    temp_file_path = File.expand_path("../..", __FILE__) + "/data/temp.txt"
     file_content = "This is a temporary file for testing purposes."
-    File.open(temp_file_path, "w") { |f| f.write(file_content) }
+    create_file("temp.txt", file_content)
 
     # Posting edit
-    delta = "\nThis file has been edited as part of the `test_edit_file` test."
+    delta = "\nThis file has been edited as part of the `test_update_file` test."
     post "/temp.txt", new_content: file_content + delta
 
     # Redirecting to index
@@ -78,8 +97,5 @@ class CMSTest < Minitest::Test
     get "/temp.txt"
     assert_equal(200, last_response.status)
     assert_includes(last_response.body, file_content + delta)
-
-    # Cleanup temp file
-    File.delete(temp_file_path)
   end
 end
