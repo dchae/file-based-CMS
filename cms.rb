@@ -38,7 +38,7 @@ def render_content(path)
   content = File.read(path)
   case File.extname(path)
   when ".md"
-    render_md(content)
+    erb render_md(content)
   when ".txt"
     headers["Content-Type"] = "text/plain"
     content
@@ -54,6 +54,7 @@ get "/" do
 end
 
 get "/:filename" do |filename|
+  @page_title = filename
   path = file_path(filename)
 
   unless File.file?(path)
@@ -65,6 +66,7 @@ get "/:filename" do |filename|
 end
 
 get "/:filename/edit" do |filename|
+  @page_title = "Edit " + filename
   @cur_content = File.read(file_path(filename))
   @filename = filename
   erb :edit
