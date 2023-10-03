@@ -1,8 +1,24 @@
 <ul>
   <% @index.each do |filename| %>
     <li>
-      <a href="/<%= filename %>"><%= filename %></a>
-      - <a href="/<%= filename %>/edit">Edit</a>
+      <a href="/<%= filename %>"><%= filename %></a> - 
+      <a href="/<%= filename %>/edit">Edit</a>
+      <form class="inline" action="/<%= filename %>/delete" method="post" >
+        <button type="submit">Delete</button>
+      </form>
     </li>
   <% end %>
 </ul>
+<p><a href="/new">New Document</a></p>
+<% if signed_in %>
+  <form class="inline" action="/users/signout" method="post" >
+    <p class="user-status">
+      Signed in as <%= session[:username] %>.
+      <button type="submit">Sign Out</button>
+    </p>
+  </form>
+<% else %>
+  <form class="inline" action="/users/signin" method="get" >
+    <button type="submit">Sign In</button>
+  </form>
+<% end %>

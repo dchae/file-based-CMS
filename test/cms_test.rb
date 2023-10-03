@@ -21,6 +21,10 @@ class CMSTest < Minitest::Test
     FileUtils.rm_rf(file_path)
   end
 
+  def session
+    last_request.env("rack.session")
+  end
+
   def test_index
     create_file("temp1.md")
     create_file("temp2.txt")
@@ -33,17 +37,17 @@ class CMSTest < Minitest::Test
 
   def test_view_text_file
     file_content = "1993 - Yukihiro Matsumoto dreams up Ruby."
-    create_file("history.txt", file_content )
+    create_file("history.txt", file_content)
 
     get "/history.txt"
     assert_equal(200, last_response.status)
     assert_equal("text/plain", last_response["Content-Type"])
-    assert_includes(last_response.body, file_content )
+    assert_includes(last_response.body, file_content)
   end
 
   def test_view_markdown_file
     file_content = "# Header 1"
-    create_file("temp.md", file_content )
+    create_file("temp.md", file_content)
 
     get "/temp.md"
     assert_equal(200, last_response.status)
@@ -72,7 +76,7 @@ class CMSTest < Minitest::Test
     get "/temp.txt/edit"
     assert_equal(200, last_response.status)
     assert_includes(last_response.body, "<textarea")
-    assert_includes(last_response.body, file_content )
+    assert_includes(last_response.body, file_content)
     assert_includes(last_response.body, '<button type="submit"')
   end
 
@@ -97,5 +101,97 @@ class CMSTest < Minitest::Test
     get "/temp.txt"
     assert_equal(200, last_response.status)
     assert_includes(last_response.body, file_content + delta)
+  end
+
+  def test_view_new_file_form
+    get "/new"
+    assert_equal(200, last_response.status)
+    assert_includes(last_response.body, "Add a new document:")
+    assert_includes(last_response.body, '<button type="submit"')
+  end
+
+  def test_create_new_file
+    filename = "temp.txt"
+    post "/new", filename: filename
+    assert_equal(302, last_response.status)
+    get last_response["Location"]
+    assert_equal(200, last_response.status)
+
+    # Test update message
+    assert_includes(last_response.body, "temp.txt was created.")
+    # Test file has been added to index
+    assert_includes(last_response.body, '<a href="/temp.txt">temp.txt')
+  end
+
+  def test_create_file_without_extension
+    post "/new", filename: "noextension"
+    assert_equal(422, last_response.status)
+    # Test update message
+    assert_includes(last_response.body, "Not a valid filename.")
+    # Test that we are loading filename.erb
+    assert_includes(last_response.body, "Add a new document:")
+    assert_includes(last_response.body, '<button type="submit"')
+  end
+
+  def test_create_file_empty_filename
+    post "/new", filename: ""
+    assert_equal(422, last_response.status)
+    # Test update message
+    assert_includes(last_response.body, "Not a valid filename.")
+    # Test that we are loading filename.erb
+    assert_includes(last_response.body, "Add a new document:")
+    assert_includes(last_response.body, '<button type="submit"')
+  end
+
+  def test_delete_file
+    create_file("temp.txt")
+    post "/temp.txt/delete"
+    assert_equal(302, last_response.status)
+    get last_response["Location"]
+    assert_equal(200, last_response.status)
+
+    assert_includes(last_response.body, "temp.txt has been deleted.")
+    refute_includes(last_response.body, '<a href="/temp.txt">temp.txt')
+  end
+
+  def test_sign_in_link
+    get "/"
+    assert_includes(last_response.body, '<button type="submit">Sign In')
+  end
+
+  def test_sign_in_page
+    get "/users/signin"
+    assert_equal(200, last_response.status)
+    assert_includes(last_response.body, "<input")
+    assert_includes(last_response.body, '<button type="submit">Sign In')
+  end
+
+  def test_sign_in
+    post "/users/signin", username: "admin", password: "secret"
+    assert_equal(302, last_response.status)
+
+    get last_response["Location"]
+    assert_includes(last_response.body, "Welcome!")
+    assert_includes(last_response.body, "Signed in as admin")
+    assert_includes(last_response.body, '<button type="submit">Sign Out')
+  end
+
+  def test_sign_in_invalid_credentials
+    post "/users/signin", username: "admin", password: "nosecret"
+    assert_equal(422, last_response.status)
+
+    assert_includes(last_response.body, "Invalid credentials")
+  end
+
+  def test_sign_out
+    post "/users/signin", username: "admin", password: "secret"
+
+    get last_response["Location"]
+    assert_includes(last_response.body, '<button type="submit">Sign Out')
+
+    post "/users/signout"
+    get last_response["Location"]
+    assert_includes(last_response.body, "You have been signed out.")
+    assert_includes(last_response.body, '<button type="submit">Sign In')
   end
 end

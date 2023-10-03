@@ -11,6 +11,9 @@ end
 
 before do
   session[:messages] ||= []
+
+  @users_hash = Hash.new(false)
+  add_user("admin", "secret".hash)
 end
 
 helpers do
@@ -34,6 +37,10 @@ def create_file(filename, file_content = "")
   File.open(file_path(filename), "w") { |f| f.write(file_content) }
 end
 
+def valid_filename(filename)
+  !File.extname(filename).empty?
+end
+
 def render_content(path)
   content = File.read(path)
   case File.extname(path)
@@ -47,10 +54,74 @@ def render_content(path)
   end
 end
 
+def add_user(username, password_hash)
+  @users_hash[username.hash] = password_hash
+end
+
+def valid_user(username, password_hash)
+  @users_hash[username.hash] == password_hash
+end
+
+def signed_in
+  valid_user(session[:username], session[:password_hash])
+end
+
+get "/users/signin" do
+  erb :signin
+end
+
+post "/users/signin" do
+  username = params[:username]
+  password_hash = params[:password].hash
+  if valid_user(username, password_hash)
+    session[:username] = username
+    session[:password_hash] = password_hash
+    session[:messages] << "Welcome!"
+    redirect "/"
+  else
+    session[:messages] << "Invalid credentials."
+    status 422
+    erb :signin
+  end
+end
+
+post "/users/signout" do
+  session.delete(:username)
+  session.delete(:password_hash)
+  session[:messages] << "You have been signed out."
+  redirect "/"
+end
+
+# get "/*" do
+#   if signed_in
+#     pass
+#   else
+#     session[:messages] << "Please sign in."
+#     redirect "/users/signin"
+#   end
+# end
+
 get "/" do
   @page_title = "File-based CMS"
   @index = Dir.children(file_path).sort
   erb :index, layout: :layout
+end
+
+get "/new" do
+  erb :new_document
+end
+
+post "/new" do
+  filename = params[:filename].strip
+  if valid_filename(filename)
+    create_file(filename)
+    session[:messages] << "#{filename} was created."
+    redirect "/"
+  else
+    session[:messages] << "Not a valid filename."
+    status 422
+    erb :new_document
+  end
 end
 
 get "/:filename" do |filename|
@@ -75,6 +146,12 @@ end
 post "/:filename" do |filename|
   File.open(file_path(filename), "w") { |f| f.write(params[:new_content]) }
   session[:messages] << "#{filename} has been updated."
+  redirect "/"
+end
+
+post "/:filename/delete" do |filename|
+  File.delete(file_path(filename))
+  session[:messages] << "#{filename} has been deleted."
   redirect "/"
 end
 

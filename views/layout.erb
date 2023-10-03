@@ -9,6 +9,7 @@
   </head>
   <body>
     <header>
+      <a href="/">Home</a>
     </header>
     <% session[:messages].each do |message| %>
       <p class="flash"><%= message %></p>
@@ -17,5 +18,6 @@
     <main>
       <%== yield %>
     </main>
+
   </body>
 </html>
