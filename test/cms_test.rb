@@ -22,7 +22,7 @@ class CMSTest < Minitest::Test
   end
 
   def session
-    last_request.env("rack.session")
+    last_request.env["rack.session"]
   end
 
   def test_index
@@ -59,11 +59,12 @@ class CMSTest < Minitest::Test
     get "/notafile.ext"
     assert_equal(302, last_response.status)
 
+    error_msg = "notafile.ext does not exist."
+    assert_includes(session[:messages], error_msg)
+
+    # Test error message disappears
     get last_response["Location"]
     assert_equal(200, last_response.status)
-
-    error_msg = "notafile.ext does not exist."
-    assert_includes(last_response.body, error_msg)
 
     get "/"
     refute_includes(last_response.body, error_msg)
@@ -91,11 +92,11 @@ class CMSTest < Minitest::Test
 
     # Redirecting to index
     assert_equal(302, last_response.status)
-    get last_response["Location"]
-    assert_equal(200, last_response.status)
 
     # Test update message
-    assert_includes(last_response.body, "temp.txt has been updated.")
+    assert_includes(session[:messages], "temp.txt has been updated.")
+    get last_response["Location"]
+    assert_equal(200, last_response.status)
 
     # Testing that file has been changed
     get "/temp.txt"
@@ -111,15 +112,15 @@ class CMSTest < Minitest::Test
   end
 
   def test_create_new_file
-    filename = "temp.txt"
-    post "/new", filename: filename
+    post "/new", filename: "temp.txt"
     assert_equal(302, last_response.status)
+    # Test update message
+    assert_includes(session[:messages], "temp.txt was created.")
+
+    # Test redirect
     get last_response["Location"]
     assert_equal(200, last_response.status)
-
-    # Test update message
-    assert_includes(last_response.body, "temp.txt was created.")
-    # Test file has been added to index
+    # Test that file has been added to index
     assert_includes(last_response.body, '<a href="/temp.txt">temp.txt')
   end
 
@@ -128,7 +129,7 @@ class CMSTest < Minitest::Test
     assert_equal(422, last_response.status)
     # Test update message
     assert_includes(last_response.body, "Not a valid filename.")
-    # Test that we are loading filename.erb
+    # Test that we are still on create file page
     assert_includes(last_response.body, "Add a new document:")
     assert_includes(last_response.body, '<button type="submit"')
   end
@@ -138,7 +139,7 @@ class CMSTest < Minitest::Test
     assert_equal(422, last_response.status)
     # Test update message
     assert_includes(last_response.body, "Not a valid filename.")
-    # Test that we are loading filename.erb
+    # Test that we are still on create file page
     assert_includes(last_response.body, "Add a new document:")
     assert_includes(last_response.body, '<button type="submit"')
   end
@@ -147,16 +148,22 @@ class CMSTest < Minitest::Test
     create_file("temp.txt")
     post "/temp.txt/delete"
     assert_equal(302, last_response.status)
+    assert_includes(session[:messages], "temp.txt has been deleted.")
+
     get last_response["Location"]
     assert_equal(200, last_response.status)
-
-    assert_includes(last_response.body, "temp.txt has been deleted.")
     refute_includes(last_response.body, '<a href="/temp.txt">temp.txt')
   end
 
-  def test_sign_in_link
+  def test_sign_in_button
     get "/"
     assert_includes(last_response.body, '<button type="submit">Sign In')
+  end
+
+  def test_signed_in
+    get "/", {}, { "rack.session" => { username: "admin", password_hash: "secret".hash } }
+    assert_includes(last_response.body, "Signed in as admin")
+    assert_includes(last_response.body, '<button type="submit">Sign Out')
   end
 
   def test_sign_in_page
@@ -169,28 +176,28 @@ class CMSTest < Minitest::Test
   def test_sign_in
     post "/users/signin", username: "admin", password: "secret"
     assert_equal(302, last_response.status)
+    assert_includes(session[:messages], "Welcome!")
+    assert_equal("admin", session[:username])
+    assert_equal("secret".hash, session[:password_hash])
 
     get last_response["Location"]
-    assert_includes(last_response.body, "Welcome!")
     assert_includes(last_response.body, "Signed in as admin")
-    assert_includes(last_response.body, '<button type="submit">Sign Out')
   end
 
   def test_sign_in_invalid_credentials
     post "/users/signin", username: "admin", password: "nosecret"
     assert_equal(422, last_response.status)
+    assert_nil(session[:username])
+    assert_nil(session[:password_hash])
 
     assert_includes(last_response.body, "Invalid credentials")
   end
 
   def test_sign_out
-    post "/users/signin", username: "admin", password: "secret"
-
+    post "/users/signout", {}, { "rack.session" => { username: "admin", password_hash: "secret".hash } }
     get last_response["Location"]
-    assert_includes(last_response.body, '<button type="submit">Sign Out')
-
-    post "/users/signout"
-    get last_response["Location"]
+    assert_nil(session[:username])
+    assert_nil(session[:password_hash])
     assert_includes(last_response.body, "You have been signed out.")
     assert_includes(last_response.body, '<button type="submit">Sign In')
   end
