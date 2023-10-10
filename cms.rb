@@ -58,12 +58,19 @@ def add_user(username, password_hash)
   @users_hash[username.hash] = password_hash
 end
 
-def valid_user(username, password_hash)
+def valid_user?(username, password_hash)
   @users_hash[username.hash] == password_hash
 end
 
-def signed_in
-  valid_user(session[:username], session[:password_hash])
+def signed_in?
+  valid_user?(session[:username], session[:password_hash])
+end
+
+def redirect_unless_signed_in(location = "/")
+  unless signed_in?
+    session[:messages] << "You must be signed in to do that."
+    redirect location
+  end
 end
 
 get "/users/signin" do
@@ -73,7 +80,7 @@ end
 post "/users/signin" do
   username = params[:username]
   password_hash = params[:password].hash
-  if valid_user(username, password_hash)
+  if valid_user?(username, password_hash)
     session[:username] = username
     session[:password_hash] = password_hash
     session[:messages] << "Welcome!"
@@ -92,15 +99,6 @@ post "/users/signout" do
   redirect "/"
 end
 
-# get "/*" do
-#   if signed_in
-#     pass
-#   else
-#     session[:messages] << "Please sign in."
-#     redirect "/users/signin"
-#   end
-# end
-
 get "/" do
   @page_title = "File-based CMS"
   @index = Dir.children(file_path).sort
@@ -108,10 +106,14 @@ get "/" do
 end
 
 get "/new" do
+  redirect_unless_signed_in
+
   erb :new_document
 end
 
 post "/new" do
+  redirect_unless_signed_in
+
   filename = params[:filename].strip
   if valid_filename(filename)
     create_file(filename)
@@ -137,6 +139,8 @@ get "/:filename" do |filename|
 end
 
 get "/:filename/edit" do |filename|
+  redirect_unless_signed_in
+
   @page_title = "Edit " + filename
   @cur_content = File.read(file_path(filename))
   @filename = filename
@@ -144,12 +148,16 @@ get "/:filename/edit" do |filename|
 end
 
 post "/:filename" do |filename|
+  redirect_unless_signed_in
+
   File.open(file_path(filename), "w") { |f| f.write(params[:new_content]) }
   session[:messages] << "#{filename} has been updated."
   redirect "/"
 end
 
 post "/:filename/delete" do |filename|
+  redirect_unless_signed_in
+
   File.delete(file_path(filename))
   session[:messages] << "#{filename} has been deleted."
   redirect "/"

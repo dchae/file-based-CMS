@@ -10,7 +10,7 @@
   <% end %>
 </ul>
 <p><a href="/new">New Document</a></p>
-<% if signed_in %>
+<% if signed_in? %>
   <form class="inline" action="/users/signout" method="post" >
     <p class="user-status">
       Signed in as <%= session[:username] %>.
