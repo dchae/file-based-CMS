@@ -2,6 +2,7 @@ require "sinatra"
 require "sinatra/reloader" if development?
 require "tilt/erubis"
 require "redcarpet"
+require "yaml"
 
 configure do
   enable :sessions
@@ -11,9 +12,8 @@ end
 
 before do
   session[:messages] ||= []
-
   @users_hash = Hash.new(false)
-  add_user("admin", "secret".hash)
+  load_users
 end
 
 helpers do
@@ -22,13 +22,11 @@ helpers do
   end
 end
 
-def file_path(filename = nil, subfolder = nil)
-  if subfolder.nil?
-    if ENV["RACK_ENV"] == "test"
-      subfolder = "test/data"
-    else
-      subfolder = "data"
-    end
+def file_path(filename = nil, subfolder = "data")
+  if ENV["RACK_ENV"] == "test"
+    subfolder = "test/" + subfolder
+  else
+    subfolder = "/" + subfolder
   end
   File.join(*[File.expand_path("..", __FILE__), subfolder, filename].compact)
 end
@@ -52,6 +50,12 @@ def render_content(path)
   else
     send_file path
   end
+end
+
+def load_users(filename = "users.yml")
+  path = file_path("users.yml", "private")
+  users = YAML.load_file(path)
+  users.each { |username, password| add_user(username, password.hash) }
 end
 
 def add_user(username, password_hash)
