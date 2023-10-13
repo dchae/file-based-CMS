@@ -1,4 +1,2 @@
-{
-  admin: "secret",
-  daniel: "asdf"
-}
+---
+admin: "$2a$12$2QEKsx7IAwyfCjtgjsosb.7SU/XM8nwHE5L6zrqEvt6nHteNB3tzC"

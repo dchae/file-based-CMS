@@ -3,6 +3,7 @@ require "sinatra/reloader" if development?
 require "tilt/erubis"
 require "redcarpet"
 require "yaml"
+require "bcrypt"
 
 configure do
   enable :sessions
@@ -12,8 +13,8 @@ end
 
 before do
   session[:messages] ||= []
-  @users_hash = Hash.new(false)
-  load_users
+  add_user("admin", "secret")
+  @users_hash = load_users
 end
 
 helpers do
@@ -54,20 +55,23 @@ end
 
 def load_users(filename = "users.yml")
   path = file_path("users.yml", "private")
-  users = YAML.load_file(path)
-  users.each { |username, password| add_user(username, password.hash) }
+  YAML.load_file(path) || {}
 end
 
-def add_user(username, password_hash)
-  @users_hash[username.hash] = password_hash
+def add_user(username, secret)
+  new_users = load_users
+  unless new_users[username]
+    new_users[username] = BCrypt::Password.create(secret).to_s
+    File.open(file_path("users.yml", "private"), "w") { |f| f.write(new_users.to_yaml) }
+  end
 end
 
-def valid_user?(username, password_hash)
-  @users_hash[username.hash] == password_hash
+def valid_user?(username, password)
+  @users_hash[username] && BCrypt::Password.new(@users_hash[username]) == password
 end
 
 def signed_in?
-  valid_user?(session[:username], session[:password_hash])
+  session[:username] && !session[:username].empty?
 end
 
 def redirect_unless_signed_in(location = "/")
@@ -82,11 +86,8 @@ get "/users/signin" do
 end
 
 post "/users/signin" do
-  username = params[:username]
-  password_hash = params[:password].hash
-  if valid_user?(username, password_hash)
-    session[:username] = username
-    session[:password_hash] = password_hash
+  if valid_user?(params[:username], params[:password])
+    session[:username] = params[:username]
     session[:messages] << "Welcome!"
     redirect "/"
   else
@@ -98,7 +99,6 @@ end
 
 post "/users/signout" do
   session.delete(:username)
-  session.delete(:password_hash)
   session[:messages] << "You have been signed out."
   redirect "/"
 end

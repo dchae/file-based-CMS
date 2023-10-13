@@ -26,7 +26,7 @@ class CMSTest < Minitest::Test
   end
 
   def admin_session
-    { "rack.session" => { username: "admin", password_hash: "secret".hash } }
+    { "rack.session" => { username: "admin"} }
   end
 
   def test_index
@@ -231,26 +231,23 @@ class CMSTest < Minitest::Test
     assert_equal(302, last_response.status)
     assert_includes(session[:messages], "Welcome!")
     assert_equal("admin", session[:username])
-    assert_equal("secret".hash, session[:password_hash])
 
     get last_response["Location"]
     assert_includes(last_response.body, "Signed in as admin")
   end
 
   def test_sign_in_invalid_credentials
-    post "/users/signin", username: "admin", password: "nosecret"
+    post "/users/signin", username: "admin", password: "notsecret"
     assert_equal(422, last_response.status)
     assert_nil(session[:username])
-    assert_nil(session[:password_hash])
 
     assert_includes(last_response.body, "Invalid credentials")
   end
 
   def test_sign_out
-    post "/users/signout", {}, { "rack.session" => { username: "admin", password_hash: "secret".hash } }
+    post "/users/signout", {}, { "rack.session" => { username: "admin"} }
     get last_response["Location"]
     assert_nil(session[:username])
-    assert_nil(session[:password_hash])
     assert_includes(last_response.body, "You have been signed out.")
     assert_includes(last_response.body, '<button type="submit">Sign In')
   end
