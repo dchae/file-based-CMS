@@ -13,8 +13,8 @@ end
 
 before do
   session[:messages] ||= []
+  @users_hash = load_users || {}
   add_user("admin", "secret")
-  @users_hash = load_users
 end
 
 helpers do
@@ -55,14 +55,13 @@ end
 
 def load_users(filename = "users.yml")
   path = file_path("users.yml", "private")
-  YAML.load_file(path) || {}
+  YAML.load_file(path) if File.file?(path) 
 end
 
 def add_user(username, secret)
-  new_users = load_users
-  unless new_users[username]
-    new_users[username] = BCrypt::Password.create(secret).to_s
-    File.open(file_path("users.yml", "private"), "w") { |f| f.write(new_users.to_yaml) }
+  unless @users_hash[username]
+    @users_hash[username] = BCrypt::Password.create(secret).to_s
+    File.open(file_path("users.yml", "private"), "w") { |f| f.write(@users_hash.to_yaml) }
   end
 end
 
