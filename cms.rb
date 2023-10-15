@@ -5,6 +5,9 @@ require "redcarpet"
 require "yaml"
 require "bcrypt"
 
+SUPPORTED_DOCTYPES = %w[.md .txt]
+SUPPORTED_IMAGETYPES = %w[.jpg .jpeg .png .gif]
+
 configure do
   enable :sessions
   set :session_secret, SecureRandom.hex(32)
@@ -37,7 +40,15 @@ def create_file(filename, file_content = "")
 end
 
 def valid_filename(filename)
-  !File.extname(filename).empty?
+  # for validating names of files to be created
+  extension = File.extname(filename).downcase
+  SUPPORTED_DOCTYPES.include?(extension)
+end
+
+def valid_filename_upload(filename)
+  # for validating files to be uploaded
+  extension = File.extname(filename).downcase
+  (SUPPORTED_DOCTYPES + SUPPORTED_IMAGETYPES).include?(extension)
 end
 
 def render_content(path)
@@ -55,7 +66,7 @@ end
 
 def load_users(filename = "users.yml")
   path = file_path("users.yml", "private")
-  YAML.load_file(path) if File.file?(path) 
+  YAML.load_file(path) if File.file?(path)
 end
 
 def add_user(username, secret)
@@ -126,6 +137,29 @@ post "/new" do
     session[:messages] << "Not a valid filename."
     status 422
     erb :new_document
+  end
+end
+
+get "/upload" do
+  redirect_unless_signed_in
+
+  erb :upload
+end
+
+post "/upload" do
+  redirect_unless_signed_in
+
+  filename = params[:upload][:filename]
+  if !valid_filename_upload(filename)
+    session[:messages] << "Unsupported filetype. Supported filetypes: #{(SUPPORTED_DOCTYPES + SUPPORTED_IMAGETYPES).join(", ")}."
+
+    erb :upload
+  else
+    file = params[:upload][:tempfile]
+
+    File.open(file_path(filename), "wb") { |f| f.write(file.read) }
+
+    redirect "/"
   end
 end
 

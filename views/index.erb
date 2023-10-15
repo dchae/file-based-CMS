@@ -2,7 +2,9 @@
   <% @index.each do |filename| %>
     <li>
       <a href="/<%= filename %>"><%= filename %></a> - 
+      <% unless SUPPORTED_IMAGETYPES.include?(File.extname(filename)) %>
       <a href="/<%= filename %>/edit">Edit</a>
+      <% end %>
       <form class="inline" action="/<%= filename %>/delete" method="post" >
         <button type="submit">Delete</button>
       </form>
@@ -10,6 +12,7 @@
   <% end %>
 </ul>
 <p><a href="/new">New Document</a></p>
+<p><a href="/upload">Upload Document</a></p>
 <% if signed_in? %>
   <form class="inline" action="/users/signout" method="post" >
     <p class="user-status">

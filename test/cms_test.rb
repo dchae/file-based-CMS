@@ -129,7 +129,7 @@ class CMSTest < Minitest::Test
   def test_view_new_file_form
     get "/new", {}, admin_session
     assert_equal(200, last_response.status)
-    assert_includes(last_response.body, "Add a new document:")
+    assert_includes(last_response.body, "Create a new document:")
     assert_includes(last_response.body, '<button type="submit"')
   end
 
@@ -170,7 +170,7 @@ class CMSTest < Minitest::Test
     # Test update message
     assert_includes(last_response.body, "Not a valid filename.")
     # Test that we are still on create file page
-    assert_includes(last_response.body, "Add a new document:")
+    assert_includes(last_response.body, "Create a new document:")
     assert_includes(last_response.body, '<button type="submit"')
   end
 
@@ -180,7 +180,7 @@ class CMSTest < Minitest::Test
     # Test update message
     assert_includes(last_response.body, "Not a valid filename.")
     # Test that we are still on create file page
-    assert_includes(last_response.body, "Add a new document:")
+    assert_includes(last_response.body, "Create a new document:")
     assert_includes(last_response.body, '<button type="submit"')
   end
 
