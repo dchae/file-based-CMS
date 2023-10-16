@@ -184,6 +184,22 @@ class CMSTest < Minitest::Test
     assert_includes(last_response.body, '<button type="submit"')
   end
 
+  def test_upload_file
+    # Need to write test for uploading files
+    # post("/upload", { enctype:"multipart/form-data" upload})
+  end
+
+  def test_duplicate_file
+    create_file("temp.txt", "test content")
+    post("/temp.txt/duplicate", {}, admin_session)
+    assert_equal(302, last_response.status)
+    assert_includes(session[:messages], "temp.txt was duplicated.")
+    get last_response["Location"]
+    assert_includes(last_response.body, 'temp copy.txt')
+    get "/temp%20copy.txt"
+    assert_includes(last_response.body, 'test content')
+  end
+
   def test_delete_file
     create_file("temp.txt")
     post "/temp.txt/delete", {}, admin_session
