@@ -192,6 +192,14 @@ post "/:filename" do |filename|
   redirect "/"
 end
 
+post "/:filename/duplicate" do |filename|
+  redirect_unless_signed_in
+  p file_content = File.open(file_path(filename), "r") { |f| f.read }
+  create_file(File.basename(filename, ".*") + " copy" + File.extname(filename), file_content)
+  session[:messages] << "#{filename} was duplicated."
+  redirect "/"
+end
+
 post "/:filename/delete" do |filename|
   redirect_unless_signed_in
 

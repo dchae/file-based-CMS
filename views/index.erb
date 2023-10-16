@@ -5,6 +5,9 @@
       <% unless SUPPORTED_IMAGETYPES.include?(File.extname(filename)) %>
       <a href="/<%= filename %>/edit">Edit</a>
       <% end %>
+      <form class="inline" action="/<%= filename %>/duplicate" method="post" >
+        <button type="submit">Duplicate</button>
+      </form>
       <form class="inline" action="/<%= filename %>/delete" method="post" >
         <button type="submit">Delete</button>
       </form>
