@@ -1,0 +1,8 @@
+some changes
+some more changes
+changed txt to md
+added this
+added 2 to name
+tried to change filetype from txt to md
+tried to change filename (2 to 3) and filetype (txt to md)
+expected behaviour (3 is kept, but md is reverted to txt

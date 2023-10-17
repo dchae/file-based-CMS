@@ -186,10 +186,20 @@ end
 
 post "/:filename" do |filename|
   redirect_unless_signed_in
-
-  File.open(file_path(filename), "w") { |f| f.write(params[:new_content]) }
-  session[:messages] << "#{filename} has been updated."
-  redirect "/"
+  @filename = filename
+  new_filename = params[:new_filename]
+  old_file_ext = File.extname(filename)
+  new_file_ext = File.extname(new_filename)
+  if new_file_ext == old_file_ext
+    File.rename(file_path(filename), file_path(new_filename)) if new_filename != filename
+    File.open(file_path(new_filename), "w") { |f| f.write(params[:new_content]) }
+    session[:messages] << "#{new_filename} has been updated."
+    redirect "/"
+  else
+    session[:messages] << "File extension cannot change."
+    status 422
+    erb :edit
+  end
 end
 
 post "/:filename/duplicate" do |filename|

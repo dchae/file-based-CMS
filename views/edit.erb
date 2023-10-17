@@ -1,8 +1,10 @@
 <div>
   <form action="/<%= @filename %>" method="post">
-    <label for="new_content">Edit content of <%= @filename %>:</label>
+    <label for="new_content">Edit content of:
+      <input type="text" id="new_filename" name="new_filename" value="<%= File.basename((params[:new_filename] || @filename), ".*") + File.extname(@filename)%>" >
+    </label>
     <div>
-      <textarea id="new_content" name="new_content" rows="20" cols="75"><%= @cur_content %></textarea>
+      <textarea id="new_content" name="new_content" rows="20" cols="75"><%= @cur_content || params[:new_content] %></textarea>
     </div>
     <button type="submit">Save Changes</button>
   </form>
