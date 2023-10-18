@@ -187,7 +187,7 @@ end
 post "/:filename" do |filename|
   redirect_unless_signed_in
   @filename = filename
-  new_filename = params[:new_filename]
+  new_filename = params[:new_filename] || filename
   old_file_ext = File.extname(filename)
   new_file_ext = File.extname(new_filename)
   if new_file_ext == old_file_ext

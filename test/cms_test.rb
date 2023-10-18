@@ -117,6 +117,57 @@ class CMSTest < Minitest::Test
     assert_includes(last_response.body, file_content + delta)
   end
 
+  def test_update_file_rename
+    create_file("temp.txt")
+
+    # Posting edit
+    post("/temp.txt", { new_filename: "temp_2.txt"}, admin_session)
+
+    # Test update message
+    assert_includes(session[:messages], "temp_2.txt has been updated.")
+
+    # Redirecting to index
+    assert_equal(302, last_response.status)
+    get last_response["Location"]
+    assert_equal(200, last_response.status)
+
+    # Testing that file has been changed
+    assert_includes(last_response.body, "temp_2.txt")
+  end
+
+  def test_update_file_rename_no_extension
+    create_file("temp.txt")
+
+    post("/temp.txt", { new_filename: "temp_2"}, admin_session)
+
+    # Test update message
+    assert_includes(last_response.body, "File extension cannot change.")
+
+    # Test that we are still on edit page
+    assert_equal(422, last_response.status)
+    assert_includes(last_response.body, "Edit content of:")
+
+    # Test that filename has not changed
+    get "/"
+    refute_includes(last_response.body, "temp_2")
+  end
+
+  def test_update_file_rename_different_extension
+    create_file("temp.txt")
+
+    post("/temp.txt", { new_filename: "temp_2.md"}, admin_session)
+
+    # Test update message
+    assert_includes(last_response.body, "File extension cannot change.")
+
+    # Test that we are still on edit page
+    assert_equal(422, last_response.status)
+    assert_includes(last_response.body, "Edit content of:")
+
+    # Test that filename has not changed
+    get "/"
+    refute_includes(last_response.body, "temp_2.md")
+  end
   def test_update_file_signed_out
     create_file("temp.txt", "")
     post("/temp.txt", { new_content: "delta" })
