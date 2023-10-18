@@ -19,6 +19,12 @@ class CMSTest < Minitest::Test
 
   def teardown
     FileUtils.rm_rf(file_path)
+    FileUtils.rm_rf(file_path("private"))
+  end
+
+  def users_setup
+    default_user_hash = { "admin" => BCrypt::Password.create("secret").to_s }
+    File.open(file_path("users.yml", "private"), "w") { |f| f.write(default_user_hash.to_yaml) }
   end
 
   def session
@@ -26,7 +32,8 @@ class CMSTest < Minitest::Test
   end
 
   def admin_session
-    { "rack.session" => { username: "admin"} }
+    users_setup
+    { "rack.session" => { username: "admin" } }
   end
 
   def test_index
@@ -121,7 +128,7 @@ class CMSTest < Minitest::Test
     create_file("temp.txt")
 
     # Posting edit
-    post("/temp.txt", { new_filename: "temp_2.txt"}, admin_session)
+    post("/temp.txt", { new_filename: "temp_2.txt" }, admin_session)
 
     # Test update message
     assert_includes(session[:messages], "temp_2.txt has been updated.")
@@ -138,7 +145,7 @@ class CMSTest < Minitest::Test
   def test_update_file_rename_no_extension
     create_file("temp.txt")
 
-    post("/temp.txt", { new_filename: "temp_2"}, admin_session)
+    post("/temp.txt", { new_filename: "temp_2" }, admin_session)
 
     # Test update message
     assert_includes(last_response.body, "File extension cannot change.")
@@ -155,7 +162,7 @@ class CMSTest < Minitest::Test
   def test_update_file_rename_different_extension
     create_file("temp.txt")
 
-    post("/temp.txt", { new_filename: "temp_2.md"}, admin_session)
+    post("/temp.txt", { new_filename: "temp_2.md" }, admin_session)
 
     # Test update message
     assert_includes(last_response.body, "File extension cannot change.")
@@ -168,6 +175,7 @@ class CMSTest < Minitest::Test
     get "/"
     refute_includes(last_response.body, "temp_2.md")
   end
+
   def test_update_file_signed_out
     create_file("temp.txt", "")
     post("/temp.txt", { new_content: "delta" })
@@ -246,9 +254,9 @@ class CMSTest < Minitest::Test
     assert_equal(302, last_response.status)
     assert_includes(session[:messages], "temp.txt was duplicated.")
     get last_response["Location"]
-    assert_includes(last_response.body, 'temp copy.txt')
+    assert_includes(last_response.body, "temp copy.txt")
     get "/temp%20copy.txt"
-    assert_includes(last_response.body, 'test content')
+    assert_includes(last_response.body, "test content")
   end
 
   def test_delete_file
@@ -312,10 +320,39 @@ class CMSTest < Minitest::Test
   end
 
   def test_sign_out
-    post "/users/signout", {}, { "rack.session" => { username: "admin"} }
+    post "/users/signout", {}, { "rack.session" => { username: "admin" } }
     get last_response["Location"]
     assert_nil(session[:username])
     assert_includes(last_response.body, "You have been signed out.")
     assert_includes(last_response.body, '<button type="submit">Sign In')
   end
+end
+
+def test_sign_in_button
+  get "/"
+  assert_includes(last_response.body, '<button type="submit">Sign Up')
+end
+
+def test_sign_up_page
+  get "/users/signup"
+  assert_equal(200, last_response.status)
+  assert_includes(last_response.body, '<button type="submit">Sign Up')
+end
+
+def test_sign_up
+  post "/users/signup", username: "new_user", password: "pass123"
+  assert_equal(302, last_response.status)
+  assert_includes(session[:messages], "Thank you for signing up!")
+  assert_equal("new_user", session[:username])
+
+  get last_response["Location"]
+  assert_includes(last_response.body, "Signed in as new_user")
+end
+
+def test_sign_up_invalid_credentials
+  post "/users/signup", username: "admin", password: "notsecret"
+  assert_equal(422, last_response.status)
+  assert_nil(session[:username])
+
+  assert_includes(last_response.body, "This user already exists. Please try a different username or sign in.")
 end
