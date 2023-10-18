@@ -91,6 +91,24 @@ def redirect_unless_signed_in(location = "/")
   end
 end
 
+get "/users/signup" do
+  erb :signup
+end
+
+post "/users/signup" do
+  username, password = params[:username], params[:password]
+  if @users_hash[username]
+    session[:messages] << "This user already exists. Please try a different username or sign in."
+    status 422
+    erb :signup
+  else
+    add_user(username, password)
+    session[:username] = username
+    session[:messages] << "Thank you for signing up!"
+    redirect "/"
+  end
+end
+
 get "/users/signin" do
   erb :signin
 end
