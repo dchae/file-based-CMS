@@ -4,9 +4,10 @@ require "tilt/erubis"
 require "redcarpet"
 require "yaml"
 require "bcrypt"
+require "date"
 
-SUPPORTED_DOCTYPES = %w[.md .txt]
-SUPPORTED_IMAGETYPES = %w[.jpg .jpeg .png .gif]
+SUPPORTED_DOCTYPES = %w[.md .txt].freeze
+SUPPORTED_IMAGETYPES = %w[.jpg .jpeg .png .gif].freeze
 
 configure do
   enable :sessions
@@ -37,6 +38,13 @@ end
 
 def create_file(filename, file_content = "")
   File.open(file_path(filename), "w") { |f| f.write(file_content) }
+  history = { cur_time => file_content }
+  write_file_history(filename, history)
+end
+
+def delete_file(filename)
+  File.delete(file_path(filename))
+  File.delete(file_path(history_filename(filename)))
 end
 
 def valid_filename(filename)
@@ -133,7 +141,7 @@ end
 
 get "/" do
   @page_title = "File-based CMS"
-  @index = Dir.children(file_path).sort
+  @index = Dir.children(file_path).reject { |fn| fn.start_with?(".") }.sort
   erb :index, layout: :layout
 end
 
@@ -149,6 +157,8 @@ post "/new" do
   filename = params[:filename].strip
   if valid_filename(filename)
     create_file(filename)
+    file_history = { cur_time => "" }
+    write_file_history(filename, file_history)
     session[:messages] << "#{filename} was created."
     redirect "/"
   else
@@ -175,6 +185,9 @@ post "/upload" do
   else
     file = params[:upload][:tempfile]
 
+    file_history = { cur_time => file.read }
+    file.rewind
+    write_file_history(filename, file_history)
     File.open(file_path(filename), "wb") { |f| f.write(file.read) }
 
     redirect "/"
@@ -193,24 +206,59 @@ get "/:filename" do |filename|
   render_content(path)
 end
 
+def history_filename(filename)
+  ".#{filename.gsub(/\./, "_")}.yml"
+end
+
+def load_history(filename)
+  path = file_path(history_filename(filename))
+  write_file_history(filename, {}) unless File.file?(path)
+  YAML.load_file(path)
+end
+
+def write_file_history(filename, history)
+  File.open(file_path(history_filename(filename)), "w") { |f| f.write(history.to_yaml) }
+end
+
+def last_version(file_history)
+  if file_history.empty?
+    file_history[cur_time] = "File history initialised."
+  end
+  file_history.to_a.last.last
+end
+
+def cur_time
+  DateTime.now.strftime("%Y%m%d-%H:%M:%S")
+end
+
 get "/:filename/edit" do |filename|
   redirect_unless_signed_in
 
-  @page_title = "Edit " + filename
-  @cur_content = File.read(file_path(filename))
   @filename = filename
+  timestamp = params[:version]
+  @page_title = "Edit " + filename
+  @file_history = load_history(filename)
+  @cur_content = @file_history[timestamp] || File.read(file_path(filename))
   erb :edit
 end
 
 post "/:filename" do |filename|
   redirect_unless_signed_in
   @filename = filename
+  @file_history = load_history(filename)
   new_filename = params[:new_filename] || filename
   old_file_ext = File.extname(filename)
   new_file_ext = File.extname(new_filename)
   if new_file_ext == old_file_ext
-    File.rename(file_path(filename), file_path(new_filename)) if new_filename != filename
-    File.open(file_path(new_filename), "w") { |f| f.write(params[:new_content]) }
+    if new_filename != filename
+      File.rename(file_path(filename), file_path(new_filename))
+      File.rename(file_path(history_filename(filename)), file_path(history_filename(new_filename)))
+    end
+    if last_version(@file_history) != params[:new_content]
+      File.open(file_path(new_filename), "w") { |f| f.write(params[:new_content]) }
+      @file_history[cur_time] = params[:new_content]
+      write_file_history(new_filename, @file_history)
+    end
     session[:messages] << "#{new_filename} has been updated."
     redirect "/"
   else
@@ -228,10 +276,11 @@ post "/:filename/duplicate" do |filename|
   redirect "/"
 end
 
+
 post "/:filename/delete" do |filename|
   redirect_unless_signed_in
 
-  File.delete(file_path(filename))
+  delete_file(filename)
   session[:messages] << "#{filename} has been deleted."
   redirect "/"
 end

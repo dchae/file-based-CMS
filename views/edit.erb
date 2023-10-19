@@ -9,3 +9,12 @@
     <button type="submit">Save Changes</button>
   </form>
 </div>
+<form action="/<%= @filename %>/edit" method="get">
+  <label for="version">Versions:</label>
+  <select name="version" id="version">
+    <% @file_history.keys.sort.reverse.each do |timestamp| %>
+      <option value="<%= timestamp %>"><%= timestamp %></option>
+    <% end %>
+  </select>
+  <button type="submit">Load Version</button>
+</form>
