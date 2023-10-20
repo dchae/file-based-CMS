@@ -33,6 +33,7 @@ def file_path(filename = nil, subfolder = "data")
   else
     subfolder = "/" + subfolder
   end
+  filename = File.basename(filename) if filename
   File.join(*[File.expand_path("..", __FILE__), subfolder, filename].compact)
 end
 
@@ -59,16 +60,29 @@ def valid_filename_upload(filename)
   (SUPPORTED_DOCTYPES + SUPPORTED_IMAGETYPES).include?(extension)
 end
 
+def redirect_unless_supported_doctype(filename)
+  unless SUPPORTED_DOCTYPES.include?(File.extname(filename))
+    status 422
+    session[:messages] << "Invalid Filetype"
+    redirect "/"
+  end
+end
+
 def render_content(path)
   content = File.read(path)
-  case File.extname(path)
-  when ".md"
+  ext = File.extname(path)
+  case
+  when ext == ".md"
     erb render_md(content)
-  when ".txt"
+  when ext == ".txt"
     headers["Content-Type"] = "text/plain"
     content
-  else
+  when SUPPORTED_IMAGETYPES.include?(ext)
     send_file path
+  else
+    status 422
+    session[:messages] << "Invalid Filetype"
+    not_found
   end
 end
 
@@ -139,9 +153,15 @@ post "/users/signout" do
   redirect "/"
 end
 
+def reject_unsupported(index)
+  supported = SUPPORTED_DOCTYPES + SUPPORTED_IMAGETYPES
+  index.select { |fn| supported.include?(File.extname(fn)) && !fn.start_with?(".") }.sort
+end
+
 get "/" do
   @page_title = "File-based CMS"
-  @index = Dir.children(file_path).reject { |fn| fn.start_with?(".") }.sort
+  @index = reject_unsupported(Dir.children(file_path))
+
   erb :index, layout: :layout
 end
 
@@ -231,8 +251,18 @@ def cur_time
   DateTime.now.strftime("%Y%m%d-%H:%M:%S")
 end
 
+def time_id
+  id = cur_time
+  id += "-1" if @file_history[id]
+  while @file_history[id]
+    id.next!
+  end
+  id
+end
+
 get "/:filename/edit" do |filename|
   redirect_unless_signed_in
+  redirect_unless_supported_doctype(filename)
 
   @filename = filename
   timestamp = params[:version]
@@ -256,7 +286,8 @@ post "/:filename" do |filename|
     end
     if last_version(@file_history) != params[:new_content]
       File.open(file_path(new_filename), "w") { |f| f.write(params[:new_content]) }
-      @file_history[cur_time] = params[:new_content]
+
+      @file_history[time_id] = params[:new_content]
       write_file_history(new_filename, @file_history)
     end
     session[:messages] << "#{new_filename} has been updated."
@@ -275,7 +306,6 @@ post "/:filename/duplicate" do |filename|
   session[:messages] << "#{filename} was duplicated."
   redirect "/"
 end
-
 
 post "/:filename/delete" do |filename|
   redirect_unless_signed_in

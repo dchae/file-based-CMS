@@ -14,3 +14,7 @@ Here is an `inline code snippet`.
 Here is an embedded image:
 
 ![bowl](/bowl.jpg)
+
+Here is an embedded gif:
+
+![rotating cat](/cat.gif)
