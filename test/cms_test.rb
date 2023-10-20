@@ -46,6 +46,23 @@ class CMSTest < Minitest::Test
     assert_includes(last_response.body, "temp2.txt")
   end
 
+  def test_index_hidden_files
+    create_file("test.txt")
+    create_file(".test2.txt")
+    get "/"
+    assert_equal(200, last_response.status)
+    refute_includes(last_response.body, ".test_txt.yml")
+    refute_includes(last_response.body, ".test2.txt")
+  end
+
+  def test_index_unsupported_files
+    create_file("test.bin")
+    create_file("test2.rtf")
+    get "/"
+    assert_equal(200, last_response.status)
+    refute_includes(last_response.body, "test.bin")
+    refute_includes(last_response.body, "test2.rtf")
+  end
   def test_view_text_file
     file_content = "1993 - Yukihiro Matsumoto dreams up Ruby."
     create_file("history.txt", file_content)
@@ -183,6 +200,20 @@ class CMSTest < Minitest::Test
     assert_includes(session[:messages], "You must be signed in to do that.")
     get "/temp.txt"
     refute_includes(last_response.body, "delta")
+  end
+
+  def test_load_file_history
+    create_file("temp.txt", "initial content")
+    post("/temp.txt", { new_content: "edit 1" }, admin_session)
+    post("/temp.txt", { new_content: "edit 2" })
+
+    keys = YAML.load_file(file_path(history_filename("temp.txt"))).keys.sort
+    get("/temp.txt/edit", { version: keys[0]})
+    assert_includes(last_response.body, "initial content")
+    get("/temp.txt/edit", { version: keys[1]})
+    assert_includes(last_response.body, "edit 1")
+    get("/temp.txt/edit", { version: keys[2]})
+    assert_includes(last_response.body, "edit 2")
   end
 
   def test_view_new_file_form
