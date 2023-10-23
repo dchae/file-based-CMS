@@ -104,6 +104,7 @@ class CMSTest < Minitest::Test
     # Loading edit page
     get "/temp.txt/edit", {}, admin_session
     assert_equal(200, last_response.status)
+    assert_equal("text/html;charset=utf-8", last_response["Content-Type"])
     assert_includes(last_response.body, "<textarea")
     assert_includes(last_response.body, file_content)
     assert_includes(last_response.body, '<button type="submit"')
@@ -115,6 +116,7 @@ class CMSTest < Minitest::Test
     get "/temp.txt/edit"
 
     assert_equal(302, last_response.status)
+    assert_equal("text/html;charset=utf-8", last_response["Content-Type"])
     assert_includes(session[:messages], "You must be signed in to do that.")
   end
 
@@ -219,6 +221,7 @@ class CMSTest < Minitest::Test
   def test_view_new_file_form
     get "/new", {}, admin_session
     assert_equal(200, last_response.status)
+    assert_equal("text/html;charset=utf-8", last_response["Content-Type"])
     assert_includes(last_response.body, "Create a new document:")
     assert_includes(last_response.body, '<button type="submit"')
   end
@@ -226,6 +229,7 @@ class CMSTest < Minitest::Test
   def test_view_new_file_form_signed_out
     get "/new"
     assert_equal(302, last_response.status)
+    assert_equal("text/html;charset=utf-8", last_response["Content-Type"])
     assert_includes(session[:messages], "You must be signed in to do that.")
   end
 
